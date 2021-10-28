@@ -1,16 +1,11 @@
 # wallet_connect_flutter_wrapper
 
-A new Flutter project.
+A wallet connect wrapper for flutter.
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://flutter.dev/docs/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://flutter.dev/docs/cookbook)
-
-For help getting started with Flutter, view our
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Clone the project and run.
+For changes in specific id and url see platform based implementation.
+# Browse : 
+Wallet Connect Swift for IOS
+Wallet Connect Kotlin for Android
