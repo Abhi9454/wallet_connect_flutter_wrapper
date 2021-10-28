@@ -35,6 +35,7 @@ class _MyHomePageState extends State<MyHomePage> {
   static const platform = MethodChannel('samples.flutter.dev/battery');
 
   String _batteryLevel = 'Unknown battery level.';
+  String _accountId = 'No Account Id found.';
 
   Future<void> _getBatteryLevel() async {
     String batteryLevel;
@@ -50,6 +51,20 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  Future<void> _getAccountId() async {
+    String accountId;
+    try {
+      final String results = await platform.invokeMethod('getAccount');
+      accountId = 'Account id is $results % .';
+    } on PlatformException catch (e) {
+      accountId = "Failed to get accounts id: '${e.message}'.";
+    }
+
+    setState(() {
+      _accountId = accountId;
+    });
+  }
+
    @override
   Widget build(BuildContext context) {
     return Material(
@@ -58,10 +73,14 @@ class _MyHomePageState extends State<MyHomePage> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             ElevatedButton(
-              child: Text('Get Battery Level'),
+              child: const Text('Get Battery Level'),
               onPressed: _getBatteryLevel,
             ),
-            Text(_batteryLevel),
+            ElevatedButton(
+              child: const Text('Get Accounts'),
+              onPressed: _getBatteryLevel,
+            ),
+            Text(_accountId),
           ],
         ),
       ),

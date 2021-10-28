@@ -18,7 +18,18 @@ import WalletConnectSwift
         result(FlutterMethodNotImplemented)
         return
       }
-        MainViewController().connect(result: result)
+        MainViewController().connect()
+    })
+        
+    let getAccount = FlutterMethodChannel(name: "samples.flutter.dev/getAccount",
+                                              binaryMessenger: controller.binaryMessenger)
+    getAccount.setMethodCallHandler({ [self]
+      (call: FlutterMethodCall, result: @escaping FlutterResult) -> Void in
+      guard call.method == "getAccount" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+        MainViewController().getAccount(result: result)
     })
 
     GeneratedPluginRegistrant.register(with: self)
@@ -98,7 +109,7 @@ class MainViewController: WalletConnectDelegate, ClientDelegate {
     }
 
 
-    func connect(result: FlutterResult) {
+    func connect() {
         let connectionUrl = connectWallet()
         //let deepLinkUrl = "https://metamask.app.link/wc?uri=\(connectionUrl)"
     
@@ -109,6 +120,13 @@ class MainViewController: WalletConnectDelegate, ClientDelegate {
             print("error")
         }
     }
+    
+    func getAccount(result: FlutterResult){
+        let accountId = session.walletInfo!.accounts[0]
+        print(accountId)
+        result(accountId)
+    }
+    
     private func randomKey() throws -> String {
         var bytes = [Int8](repeating: 0, count: 32)
         let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
