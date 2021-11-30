@@ -10,27 +10,16 @@ import WalletConnectSwift
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
     let controller : FlutterViewController = window?.rootViewController as! FlutterViewController
-    let batteryChannel = FlutterMethodChannel(name: "samples.flutter.dev/battery",
+    let walletChannel = FlutterMethodChannel(name: "samples.flutter.dev/walletConnect",
                                               binaryMessenger: controller.binaryMessenger)
-        batteryChannel.setMethodCallHandler({ [self]
-      (call: FlutterMethodCall, result: @escaping FlutterResult) -> Void in
-      guard call.method == "getBatteryLevel" else {
-        result(FlutterMethodNotImplemented)
-        return
-      }
-        MainViewController().connect()
-    })
-        
-    let getAccount = FlutterMethodChannel(name: "samples.flutter.dev/getAccount",
-                                              binaryMessenger: controller.binaryMessenger)
-    getAccount.setMethodCallHandler({ [self]
-      (call: FlutterMethodCall, result: @escaping FlutterResult) -> Void in
-      guard call.method == "getAccount" else {
-        result(FlutterMethodNotImplemented)
-        return
-      }
-        MainViewController().getAccount(result: result)
-    })
+        walletChannel.setMethodCallHandler {(call: FlutterMethodCall, result: FlutterResult) -> Void in
+            if (call.method == "connectToWallet") {
+                    MainViewController().connect()
+                }
+            if (call.method == "getAccount"){
+                MainViewController().getAccount(result: result)
+            }
+        }
 
     GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
@@ -43,7 +32,18 @@ protocol WalletConnectDelegate {
     func didDisconnect()
 }
 
-class MainViewController: WalletConnectDelegate, ClientDelegate {
+class MainViewController: ClientDelegate {
+    
+    func onMainThread(_ closure: @escaping () -> Void) {
+        if Thread.isMainThread {
+            closure()
+        } else {
+            DispatchQueue.main.async {
+                closure()
+            }
+        }
+    }
+    
     func client(_ client: Client, didFailToConnect url: WCURL) {
             delegate.failedToConnect()
         }
@@ -67,18 +67,6 @@ class MainViewController: WalletConnectDelegate, ClientDelegate {
         func client(_ client: Client, didUpdate session: Session) {
             // do nothing
         }
-    
-    func failedToConnect() {
-        //
-    }
-    
-    func didConnect() {
-        print("connected")
-    }
-    
-    func didDisconnect() {
-        //
-    }
     
  
     
@@ -122,7 +110,7 @@ class MainViewController: WalletConnectDelegate, ClientDelegate {
     }
     
     func getAccount(result: FlutterResult){
-        let accountId = session.walletInfo!.accounts[0]
+        let accountId = AppData.shared.accounts;
         print(accountId)
         result(accountId)
     }
@@ -138,6 +126,97 @@ class MainViewController: WalletConnectDelegate, ClientDelegate {
                 case unknown
             }
             throw TestError.unknown
+        }
+    }
+}
+
+extension MainViewController: WalletConnectDelegate {
+    func failedToConnect() {
+        onMainThread { [unowned self] in
+//            if let handshakeController = self.handshakeController {
+//                handshakeController.dismiss(animated: true)
+//            }
+//            UIAlertController.showFailedToConnect(from: self)
+            print("failed");
+        }
+    }
+
+    func didConnect() {
+        onMainThread { [unowned self] in
+//            self.actionsController = ActionsViewController.create(walletConnect: self.walletConnect)
+//            if let handshakeController = self.handshakeController {
+//                handshakeController.dismiss(animated: false) { [unowned self] in
+//                    self.present(self.actionsController, animated: false)
+//                }
+//            } else if self.presentedViewController == nil {
+//                self.present(self.actionsController, animated: false)
+//            }
+            print("connected");
+        }
+    }
+
+    func didDisconnect() {
+        onMainThread { [unowned self] in
+//            if let presented = self.presentedViewController {
+//                presented.dismiss(animated: false)
+//            }
+//            UIAlertController.showDisconnected(from: self)
+            print("disconnect");
+        }
+    }
+}
+
+class AppData {
+    static let shared = AppData()
+    
+    private init() {}
+    
+    var peerId: String {
+        get{
+            UserDefaults.standard.string(forKey: "peerId") ?? ""
+        }
+        set{
+            UserDefaults.standard.set(newValue, forKey: "peerId")
+        }
+    }
+    
+    var accounts: [Any] {
+        get{
+            UserDefaults.standard.array(forKey: "accounts") ?? []
+        }
+        set{
+            UserDefaults.standard.set(newValue, forKey: "accounts")
+        }
+    }
+    
+    private let userNotificationCenter = UNUserNotificationCenter.current()
+
+    func requestNotificationAuthorization() {
+        let authOptions = UNAuthorizationOptions.init(arrayLiteral: .alert, .badge, .sound)
+        
+        self.userNotificationCenter.requestAuthorization(options: authOptions) { (success, error) in
+            if let error = error {
+                print("Error: ", error)
+            }
+        }
+    }
+
+    func sendNotification(title: String, body: String) {
+        let notificationContent = UNMutableNotificationContent()
+        notificationContent.title = title
+        notificationContent.body = body
+        notificationContent.badge = NSNumber(value: 3)
+        
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 2,
+                                                        repeats: false)
+        let request = UNNotificationRequest(identifier: "testNotification",
+                                            content: notificationContent,
+                                            trigger: trigger)
+        
+        userNotificationCenter.add(request) { (error) in
+            if let error = error {
+                print("Notification Error: ", error)
+            }
         }
     }
 }

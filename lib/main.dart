@@ -32,7 +32,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  static const platform = MethodChannel('samples.flutter.dev/battery');
+  static const platform = MethodChannel('samples.flutter.dev/walletConnect');
 
   String _batteryLevel = 'Unknown battery level.';
   String _accountId = 'No Account Id found.';
@@ -40,7 +40,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _getBatteryLevel() async {
     String batteryLevel;
     try {
-      final int result = await platform.invokeMethod('getBatteryLevel');
+      final int result = await platform.invokeMethod('connectToWallet');
       batteryLevel = 'Battery level at $result % .';
     } on PlatformException catch (e) {
       batteryLevel = "Failed to get battery level: '${e.message}'.";
@@ -73,12 +73,12 @@ class _MyHomePageState extends State<MyHomePage> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             ElevatedButton(
-              child: const Text('Get Battery Level'),
+              child: const Text('Connect to Wallet'),
               onPressed: _getBatteryLevel,
             ),
             ElevatedButton(
               child: const Text('Get Accounts'),
-              onPressed: _getBatteryLevel,
+              onPressed: _getAccountId,
             ),
             Text(_accountId),
           ],
