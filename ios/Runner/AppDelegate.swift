@@ -4,89 +4,52 @@ import Foundation
 import WalletConnectSwift
 
 
-@UIApplicationMain
-@objc class AppDelegate: FlutterAppDelegate {
-  override func application(
-    _ application: UIApplication,
-    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-    let controller : FlutterViewController = window?.rootViewController as! FlutterViewController
-    let walletChannel = FlutterMethodChannel(name: "samples.flutter.dev/walletConnect",
-                                              binaryMessenger: controller.binaryMessenger)
-        walletChannel.setMethodCallHandler {(call: FlutterMethodCall, result: FlutterResult) -> Void in
-            if (call.method == "connectToWallet") {
-                    MainViewController().connect()
-                }
-            if (call.method == "getAccount"){
-                MainViewController().getAccount(result: result)
-            }
-        }
-
-    GeneratedPluginRegistrant.register(with: self)
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
-    }
-}
-
 protocol WalletConnectDelegate {
     func failedToConnect()
     func didConnect()
     func didDisconnect()
 }
 
-class MainViewController: ClientDelegate {
+@UIApplicationMain
+@objc class AppDelegate: FlutterAppDelegate{
     
-    func onMainThread(_ closure: @escaping () -> Void) {
-        if Thread.isMainThread {
-            closure()
-        } else {
-            DispatchQueue.main.async {
-                closure()
-            }
-        }
-    }
     
-    func client(_ client: Client, didFailToConnect url: WCURL) {
-            delegate.failedToConnect()
-        }
-
-        func client(_ client: Client, didConnect url: WCURL) {
-            // do nothing
-        }
-
-        func client(_ client: Client, didConnect session: Session) {
-            self.session = session
-            let sessionData = try! JSONEncoder().encode(session)
-            UserDefaults.standard.set(sessionData, forKey: sessionKey)
-            delegate.didConnect()
-        }
-
-        func client(_ client: Client, didDisconnect session: Session) {
-            UserDefaults.standard.removeObject(forKey: sessionKey)
-            delegate.didDisconnect()
-        }
-
-        func client(_ client: Client, didUpdate session: Session) {
-            // do nothing
-        }
-    
- 
-    
-    var delegate: WalletConnectDelegate!
     var client: Client!
     var session: Session!
-    
-    var sessionKey = "sessionKey"
+    var delegate: WalletConnectDelegate!
 
+    let sessionKey = "sessionKey"
     
-    func connectWallet() -> String {
+  override func application(
+    _ application: UIApplication,
+    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+    AppData.shared.requestNotificationAuthorization()
+    let controller : FlutterViewController = window?.rootViewController as! FlutterViewController
+    let walletChannel = FlutterMethodChannel(name: "samples.flutter.dev/walletConnect",
+                                              binaryMessenger: controller.binaryMessenger)
+        walletChannel.setMethodCallHandler { [self](call: FlutterMethodCall, result: FlutterResult) -> Void in
+            if (call.method == "connectToWallet") {
+                 connect()
+                }
+            if (call.method == "getAccount"){
+                getAccount(result: result)
+            }
+        }
+
+    GeneratedPluginRegistrant.register(with: self)
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    }
+    
+    func connectToWallet() -> String {
         // gnosis wc bridge: https://safe-walletconnect.gnosis.io/
         // test bridge with latest protocol version: https://bridge.walletconnect.org
         let wcUrl =  WCURL(topic: UUID().uuidString,
-                           bridgeURL: URL(string: "https://safe-walletconnect.gnosis.io/")!,
-                           key: try! randomKey())
+                                   bridgeURL: URL(string: "https://safe-walletconnect.gnosis.io/")!,
+                                   key: try! randomKey())
         let clientMeta = Session.ClientMeta(name: "MyApplication",
-                                            description: "WalletConnectSwift ",
-                                            icons: [],
-                                            url: URL(string: "https://safe.gnosis.io")!)
+                                                    description: "WalletConnectSwift ",
+                                                    icons: [],
+                                                    url: URL(string: "https://safe.gnosis.io")!)
         let dAppInfo = Session.DAppInfo(peerId: UUID().uuidString, peerMeta: clientMeta)
         client = Client(delegate: self, dAppInfo: dAppInfo)
 
@@ -96,25 +59,15 @@ class MainViewController: ClientDelegate {
         return wcUrl.absoluteString
     }
 
-
-    func connect() {
-        let connectionUrl = connectWallet()
-        //let deepLinkUrl = "https://metamask.app.link/wc?uri=\(connectionUrl)"
-    
-
-        if let url = URL(string: connectionUrl), UIApplication.shared.canOpenURL(url) {
-            UIApplication.shared.open(url, options: [:], completionHandler: nil)
-        } else {
-            print("error")
+    func reconnectIfNeeded() {
+        if let oldSessionObject = UserDefaults.standard.object(forKey: sessionKey) as? Data,
+            let session = try? JSONDecoder().decode(Session.self, from: oldSessionObject) {
+            client = Client(delegate: self, dAppInfo: session.dAppInfo)
+            try? client.reconnect(to: session)
         }
     }
-    
-    func getAccount(result: FlutterResult){
-        let accountId = AppData.shared.accounts;
-        print(accountId)
-        result(accountId)
-    }
-    
+
+    // https://developer.apple.com/documentation/security/1399291-secrandomcopybytes
     private func randomKey() throws -> String {
         var bytes = [Int8](repeating: 0, count: 32)
         let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
@@ -128,43 +81,72 @@ class MainViewController: ClientDelegate {
             throw TestError.unknown
         }
     }
-}
 
-extension MainViewController: WalletConnectDelegate {
-    func failedToConnect() {
-        onMainThread { [unowned self] in
-//            if let handshakeController = self.handshakeController {
-//                handshakeController.dismiss(animated: true)
-//            }
-//            UIAlertController.showFailedToConnect(from: self)
-            print("failed");
-        }
+    
+    func connect() {
+        let connectionUrl = connectToWallet()
+        //let deepLinkUrl = "https://metamask.app.link/wc?uri=\(connectionUrl)"
+    
+        
+        if(AppData.shared.accounts.isEmpty){
+            if let url = URL(string: connectionUrl), UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            } else {
+                UIApplication.shared.open(NSURL(string: "https://apps.apple.com/us/app/metamask-blockchain-wallet/id1438144202")! as URL)
+            }
+            reconnectIfNeeded()
+        }       
     }
-
-    func didConnect() {
-        onMainThread { [unowned self] in
-//            self.actionsController = ActionsViewController.create(walletConnect: self.walletConnect)
-//            if let handshakeController = self.handshakeController {
-//                handshakeController.dismiss(animated: false) { [unowned self] in
-//                    self.present(self.actionsController, animated: false)
-//                }
-//            } else if self.presentedViewController == nil {
-//                self.present(self.actionsController, animated: false)
-//            }
-            print("connected");
-        }
-    }
-
-    func didDisconnect() {
-        onMainThread { [unowned self] in
-//            if let presented = self.presentedViewController {
-//                presented.dismiss(animated: false)
-//            }
-//            UIAlertController.showDisconnected(from: self)
-            print("disconnect");
-        }
+    
+    func getAccount(result: FlutterResult){
+        let accountId = AppData.shared.accounts;
+        print(accountId)
+        result(accountId)
     }
 }
+
+extension AppDelegate : ClientDelegate {
+    func client(_ client: Client, didFailToConnect url: WCURL) {
+    }
+
+    func client(_ client: Client, didConnect url: WCURL) {
+        // do nothing
+    }
+
+    func client(_ client: Client, didConnect session: Session) {
+        self.session = session
+        AppData.shared.peerId = session.walletInfo?.peerId ?? ""
+        AppData.shared.accounts = session.walletInfo?.accounts ?? []
+        let sessionData = try! JSONEncoder().encode(session)
+        UserDefaults.standard.set(sessionData, forKey: sessionKey)
+        AppData.shared.sendNotification(title: "Successfully Connected", body : "Go back to Application")
+    }
+
+    func client(_ client: Client, didDisconnect session: Session) {
+        UserDefaults.standard.removeObject(forKey: sessionKey)
+    }
+
+    func client(_ client: Client, didUpdate session: Session) {
+        AppData.shared.peerId = session.walletInfo?.peerId ?? ""
+        AppData.shared.accounts = session.walletInfo?.accounts ?? []
+
+    }
+}
+
+
+extension WCURL {
+    var partiallyPercentEncodedStr: String {
+        let params = "bridge=\(bridgeURL.absoluteString)&key=\(key)"
+            .addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+        return "wc:\(topic)@\(version)?\(params))"
+    }
+
+    var fullyPercentEncodedStr: String {
+        absoluteString.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+    }
+}
+
+
 
 class AppData {
     static let shared = AppData()
@@ -220,7 +202,6 @@ class AppData {
         }
     }
 }
-
 
 
 
