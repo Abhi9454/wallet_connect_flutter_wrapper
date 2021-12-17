@@ -125,13 +125,16 @@ protocol WalletConnectDelegate {
             do {
                 let result = try response.result(as: String.self)
                 print("success and result is \(result)")
+                AppData.shared.ethResponse = "\(result)"
             } catch {
                 print("Error catched")
+                AppData.shared.ethResponse = ""
             }
         }
     
-    func getEthSignResponse(){
-        
+     func getEthSignResponse(result: FlutterResult) {
+        let ethResponse = AppData.shared.ethResponse
+        result(ethResponse)
     }
 }
 
@@ -199,6 +202,15 @@ class AppData {
         set{
             UserDefaults.standard.set(newValue, forKey: "accounts")
         }
+
+        var ethResponse: String {
+        get{
+            UserDefaults.standard.string(forKey: "ethResponse") ?? ""
+        }
+        set{
+            UserDefaults.standard.set(newValue, forKey: "ethResponse")
+        }
+    }
     }
     
     private let userNotificationCenter = UNUserNotificationCenter.current()
