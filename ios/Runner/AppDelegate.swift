@@ -37,6 +37,9 @@ protocol WalletConnectDelegate {
             if (call.method == "signMessage"){
                 eth_sign()
             }
+            if (call.method == "getSignature"){
+                getEthSignResponse()
+            }
         }
 
     GeneratedPluginRegistrant.register(with: self)
@@ -126,6 +129,10 @@ protocol WalletConnectDelegate {
                 print("Error catched")
             }
         }
+    
+    func getEthSignResponse(){
+        
+    }
 }
 
 extension AppDelegate : ClientDelegate {
