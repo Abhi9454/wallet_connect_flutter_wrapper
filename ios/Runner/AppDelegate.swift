@@ -32,7 +32,10 @@ protocol WalletConnectDelegate {
                  connect()
                 }
             if (call.method == "getAccount"){
-                getAccount(result: result)
+                getAccount()
+            }
+            if (call.method == "signMessage"){
+                eth_sign()
             }
         }
 
@@ -103,6 +106,26 @@ protocol WalletConnectDelegate {
         print(accountId)
         result(accountId)
     }
+    
+    func eth_sign() {
+        try? client.eth_sign(url: session.url, account: session.walletInfo!.accounts[0], message: "0xdeadbeaf") {
+                [weak self] response in
+                self?.handleReponse(response, expecting: "Signature")
+            }
+    }
+    
+    private func handleReponse(_ response: Response, expecting: String) {
+            if let error = response.error {
+                print("Error \(error)")
+                return
+            }
+            do {
+                let result = try response.result(as: String.self)
+                print("success and result is \(result)")
+            } catch {
+                print("Error catched")
+            }
+        }
 }
 
 extension AppDelegate : ClientDelegate {
